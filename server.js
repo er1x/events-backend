@@ -9,9 +9,10 @@ var request    = require('request');
 var config = require('./.secret.json');
 var app = express();
 
-app.use(cors());
+
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
+app.use(cors());
 
 function createJWT(userId) {
   var payload = {
@@ -23,13 +24,13 @@ function createJWT(userId) {
 }
 
 // Auth route
-app.get('/api/auth/twitter', function(req, res) {
+app.post('/auth/twitter', function(req, res) {
   var requestTokenUrl = 'https://api.twitter.com/oauth/request_token';
   var accessTokenUrl  = 'https://api.twitter.com/oauth/access_token';
   var authenticateUrl = 'https://api.twitter.com/oauth/authenticate';
 
   // First request: no auth token present
-  if (!req.query.oauth_token && !req.query.oauth_verifier) {
+  if (!req.body.oauth_token || !req.body.oauth_verifier) {
     var requestTokenOauth = {
       consumer_key: config.TWITTER_KEY,
       consumer_secret: config.TWITTER_SECRET
@@ -37,14 +38,14 @@ app.get('/api/auth/twitter', function(req, res) {
 
     // Retrieve a Twitter Token and redirect to Twitter auth page
     request.post({ url: requestTokenUrl, oauth: requestTokenOauth }, function(err, response, body) {
-      res.redirect(authenticateUrl + '?oauth_token=' + qs.parse(body).oauth_token);
+      res.send(qs.parse(body));
     });
-  } else { // Second request, we got an auth token
+  } else {
     var accessTokenOauth = {
       consumer_key: config.TWITTER_KEY,
       consumer_secret: config.TWITTER_SECRET,
-      token: req.query.oauth_token,
-      verifier: req.query.oauth_verifier
+      token: req.body.oauth_token,
+      verifier: req.body.oauth_verifier
     };
 
     // Check the token against Twitter and send JWT to app
@@ -55,8 +56,7 @@ app.get('/api/auth/twitter', function(req, res) {
   }
 });
 
-
-app.get('/api/events', function(req, res) {
+app.get('/events', function(req, res) {
 
   // if not authenticated, send forbidden code
   if (!req.headers.authorization) {
